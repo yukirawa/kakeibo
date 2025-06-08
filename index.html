@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高機能家計簿アプリ</title>
+    <!-- Firebase設定 -->
+    <script src="config.js"></script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* カスタムスタイル */
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 24px;
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+        .modal {
+            display: none;
+        }
+        .modal.is-open {
+            display: flex;
+        }
+        .progress-bar-bg {
+            background-color: #e5e7eb;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- メインコンテンツ -->
+    <div class="main-container p-4 md:p-8">
+
+        <!-- ヘッダー -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-8">
+            <div>
+                <h1 class="text-4xl font-bold text-gray-800">家計簿ダッシュボード</h1>
+                <p class="text-gray-500 mt-1">あなたのお金の流れをスマートに管理</p>
+            </div>
+             <div id="auth-info" class="text-xs text-gray-400 mt-4 md:mt-0 text-right">
+                <p>読み込み中...</p>
+             </div>
+        </header>
+
+        <!-- サマリー -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="card flex items-center p-6">
+                <div class="p-4 bg-blue-100 rounded-full mr-4">
+                    <i class="fas fa-wallet fa-2x text-blue-500"></i>
+                </div>
+                <div>
+                    <h2 class="text-gray-500 text-lg">現在の残高</h2>
+                    <p id="current-balance" class="text-3xl font-bold">¥0</p>
+                </div>
+            </div>
+            <div class="card flex items-center p-6">
+                <div class="p-4 bg-green-100 rounded-full mr-4">
+                    <i class="fas fa-arrow-up fa-2x text-green-500"></i>
+                </div>
+                <div>
+                    <h2 class="text-gray-500 text-lg">今月の収入</h2>
+                    <p id="total-income" class="text-3xl font-bold text-green-600">¥0</p>
+                </div>
+            </div>
+            <div class="card flex items-center p-6">
+                <div class="p-4 bg-red-100 rounded-full mr-4">
+                     <i class="fas fa-arrow-down fa-2x text-red-500"></i>
+                </div>
+                <div>
+                    <h2 class="text-gray-500 text-lg">今月の支出</h2>
+                    <p id="total-expense" class="text-3xl font-bold text-red-600">¥0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- アクションボタン -->
+        <div class="flex justify-center mb-8">
+            <button id="open-transaction-modal" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105">
+                <i class="fas fa-plus mr-2"></i>取引を追加
+            </button>
+        </div>
+
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 取引履歴 -->
+            <div class="lg:col-span-2">
+                <div class="card h-full">
+                    <h2 class="text-2xl font-bold mb-6">取引履歴</h2>
+                    <div id="transaction-list" class="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                        <!-- 取引アイテムはここにJSで挿入されます -->
+                        <p class="text-gray-500">取引データがありません。</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 予算管理 & 分析 -->
+            <div class="space-y-8">
+                 <div class="card">
+                    <h2 class="text-2xl font-bold mb-6">支出カテゴリ分析</h2>
+                    <div class="w-full h-64 flex justify-center items-center">
+                        <canvas id="expense-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="text-2xl font-bold mb-4">予算管理（月間）</h2>
+                    <p class="text-gray-500 mb-6">カテゴリごとの予算を設定し、無駄遣いを発見しましょう。</p>
+                    <div id="budget-list" class="space-y-4">
+                       <!-- 予算アイテムはここにJSで挿入されます -->
+                       <p class="text-gray-500">予算データがありません。</p>
+                    </div>
+                     <form id="budget-form" class="mt-6 flex gap-2">
+                        <select id="budget-category" class="w-full p-2 border border-gray-300 rounded-lg" required>
+                            <!-- カテゴリオプションはJSで追加 -->
+                        </select>
+                        <input type="number" id="budget-amount" placeholder="予算額" class="w-full p-2 border border-gray-300 rounded-lg" required>
+                        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">設定</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 取引追加モーダル -->
+    <div id="transaction-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center p-4">
+        <div class="card w-full max-w-lg">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">新しい取引を追加</h2>
+                <button id="close-transaction-modal" class="text-gray-500 hover:text-gray-800">
+                    <i class="fas fa-times fa-2x"></i>
+                </button>
+            </div>
+            <form id="transaction-form">
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2">種類</label>
+                    <div class="flex">
+                        <button type="button" id="type-income-btn" class="transaction-type-btn flex-1 p-3 rounded-l-lg border-2 border-green-500 bg-green-500 text-white">収入</button>
+                        <button type="button" id="type-expense-btn" class="transaction-type-btn flex-1 p-3 rounded-r-lg border-2 border-red-500">支出</button>
+                    </div>
+                    <input type="hidden" id="transaction-type" value="income" required>
+                </div>
+                 <div class="mb-4">
+                    <label for="transaction-date" class="block text-gray-700 mb-2">日付</label>
+                    <input type="date" id="transaction-date" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                </div>
+                <div class="mb-4">
+                    <label for="transaction-amount" class="block text-gray-700 mb-2">金額</label>
+                    <input type="number" id="transaction-amount" class="w-full p-3 border border-gray-300 rounded-lg" placeholder="例: 3000" required>
+                </div>
+                <div class="mb-4">
+                    <label for="transaction-category" class="block text-gray-700 mb-2">カテゴリ</label>
+                    <select id="transaction-category" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                        <!-- カテゴリオプションはJSで追加 -->
+                    </select>
+                </div>
+                 <div class="mb-6">
+                    <label for="transaction-description" class="block text-gray-700 mb-2">メモ（任意）</label>
+                    <input type="text" id="transaction-description" class="w-full p-3 border border-gray-300 rounded-lg" placeholder="例: ランチ代">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg">保存</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- メッセージ表示用のコンテナ -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50"></div>
+
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Firebaseライブラリをインポート
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, addDoc, onSnapshot, query, where, deleteDoc, getDocs, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // === グローバル変数と設定 ===
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-kakeibo-app';
+        let db, auth, userId, isAuthReady = false;
+        let expenseChart = null;
+
+        // カテゴリ設定
+        const categories = {
+            income: ['給与', '賞与', '副業', '臨時収入', 'その他'],
+            expense: ['飲食費', '日用品', '住居費', '交通費', '交際費', '趣味・娯楽', '教育・自己投資', '医療費', '水道・光熱費', '通信費', '税金・保険', '貯金・貯蓄' , 'その他']
+        };
+
+        // === 初期化処理 ===
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                // Firebase設定をパースして初期化
+                const firebaseConfig = __firebase_config;
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // 認証状態の監視
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        // ユーザーがログインしている場合
+                        userId = user.uid;
+                        isAuthReady = true;
+                        console.log("Authenticated with UID:", userId);
+                        displayAuthInfo(userId);
+                        initializeAppState();
+                    } else if (typeof __initial_auth_token !== 'undefined') {
+                        // カスタムトークンでサインイン試行
+                        await signInWithCustomToken(auth, __initial_auth_token).catch(err => {
+                             console.error("Custom token sign-in error:", err);
+                             signInAnonymously(auth); // 失敗したら匿名認証
+                        });
+                    } else {
+                        // 匿名でサインイン
+                        await signInAnonymously(auth).catch(err => console.error("Anonymous sign-in error:", err));
+                    }
+                });
+            } catch (error) {
+                console.error("Firebaseの初期化に失敗しました:", error);
+                document.body.innerHTML = '<div class="text-center p-8 text-red-500">アプリケーションの読み込みに失敗しました。設定を確認してください。</div>';
+            }
+        });
+
+        // アプリケーションの状態を初期化
+        function initializeAppState() {
+            if (!isAuthReady) return;
+            setupEventListeners();
+            populateCategoryDropdowns();
+            loadAndDisplayData();
+        }
+        
+        // 認証情報を表示
+        function displayAuthInfo(currentUserId) {
+            const authInfoDiv = document.getElementById('auth-info');
+            if(authInfoDiv) {
+                authInfoDiv.innerHTML = `<p>ユーザーID: <span class="font-mono bg-gray-200 px-1 rounded">${currentUserId}</span></p><p>このIDでデータが保存されます</p>`;
+            }
+        }
+
+        // === データ読み込みと表示 ===
+        function loadAndDisplayData() {
+            // 取引データのリアルタイム監視
+            const transCol = collection(db, `artifacts/${appId}/users/${userId}/transactions`);
+            onSnapshot(query(transCol), (snapshot) => {
+                const transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // データを日付の降順でソート
+                transactions.sort((a, b) => b.date.toDate() - a.date.toDate());
+                
+                // 予算データのリアルタイム監視
+                 const budgetCol = collection(db, `artifacts/${appId}/users/${userId}/budgets`);
+                 onSnapshot(query(budgetCol), (budgetSnapshot) => {
+                    const budgets = budgetSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    updateUI(transactions, budgets);
+                });
+            });
+        }
+        
+        // UI全体を更新する
+        function updateUI(transactions, budgets) {
+            renderTransactions(transactions);
+            updateSummary(transactions);
+            renderExpenseChart(transactions);
+            renderBudgets(transactions, budgets);
+        }
+
+        // 取引履歴のレンダリング
+        function renderTransactions(transactions) {
+            const listEl = document.getElementById('transaction-list');
+            listEl.innerHTML = '';
+            if (transactions.length === 0) {
+                listEl.innerHTML = '<p class="text-gray-500">取引データがありません。</p>';
+                return;
+            }
+            transactions.forEach(t => {
+                const isIncome = t.type === 'income';
+                const date = t.date.toDate();
+                const formattedDate = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+                
+                const itemEl = document.createElement('div');
+                itemEl.className = 'flex items-center justify-between p-3 rounded-lg hover:bg-gray-50';
+                itemEl.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center mr-4 ${isIncome ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}">
+                            <i class="fas ${isIncome ? 'fa-arrow-up' : 'fa-arrow-down'}"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold">${t.category}</p>
+                            <p class="text-sm text-gray-500">${t.description || formattedDate}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold text-lg ${isIncome ? 'text-green-600' : 'text-red-600'}">${isIncome ? '+' : '-'}${t.amount.toLocaleString()}円</p>
+                        <button class="delete-transaction-btn text-xs text-gray-400 hover:text-red-500" data-id="${t.id}"><i class="fas fa-trash-alt mr-1"></i>削除</button>
+                    </div>
+                `;
+                listEl.appendChild(itemEl);
+            });
+            
+            // 削除ボタンにイベントリスナーを追加
+            document.querySelectorAll('.delete-transaction-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.dataset.id;
+                    if (confirm('この取引を削除しますか？')) {
+                        try {
+                            const docRef = doc(db, `artifacts/${appId}/users/${userId}/transactions`, id);
+                            await deleteDoc(docRef);
+                            showToast('取引を削除しました', 'success');
+                        } catch (error) {
+                            console.error("削除エラー:", error);
+                            showToast('削除に失敗しました', 'error');
+                        }
+                    }
+                });
+            });
+        }
+
+        // サマリーの更新
+        function updateSummary(transactions) {
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            const monthlyTransactions = transactions.filter(t => t.date.toDate() >= startOfMonth);
+            
+            const income = monthlyTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const expense = monthlyTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+            const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const totalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+            const balance = totalIncome - totalExpense;
+
+            document.getElementById('current-balance').textContent = `¥${balance.toLocaleString()}`;
+            document.getElementById('total-income').textContent = `¥${income.toLocaleString()}`;
+            document.getElementById('total-expense').textContent = `¥${expense.toLocaleString()}`;
+        }
+
+        // 支出チャートのレンダリング
+        function renderExpenseChart(transactions) {
+            const ctx = document.getElementById('expense-chart').getContext('2d');
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            const expenseData = transactions
+                .filter(t => t.type === 'expense' && t.date.toDate() >= startOfMonth)
+                .reduce((acc, t) => {
+                    acc[t.category] = (acc[t.category] || 0) + t.amount;
+                    return acc;
+                }, {});
+
+            const labels = Object.keys(expenseData);
+            const data = Object.values(expenseData);
+
+            if (expenseChart) {
+                expenseChart.destroy();
+            }
+            
+            if (labels.length === 0) {
+                document.getElementById('expense-chart').parentElement.innerHTML = '<canvas id="expense-chart"></canvas><p class="absolute text-gray-500">今月の支出データがありません。</p>';
+                return;
+            } else {
+                 const p = document.querySelector('#expense-chart + p');
+                 if(p) p.remove();
+            }
+
+            expenseChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7'
+                        ],
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 予算リストのレンダリング
+        function renderBudgets(transactions, budgets) {
+            const budgetListEl = document.getElementById('budget-list');
+            budgetListEl.innerHTML = '';
+            
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            
+            // 今月のカテゴリ別支出を計算
+            const monthlyExpenses = transactions
+                .filter(t => t.type === 'expense' && t.date.toDate() >= startOfMonth)
+                .reduce((acc, t) => {
+                    acc[t.category] = (acc[t.category] || 0) + t.amount;
+                    return acc;
+                }, {});
+
+            if(budgets.length === 0) {
+                budgetListEl.innerHTML = '<p class="text-gray-500 text-center">予算が設定されていません。</p>';
+                return;
+            }
+
+            budgets.forEach(budget => {
+                const spent = monthlyExpenses[budget.id] || 0;
+                const remaining = budget.amount - spent;
+                const percentage = Math.min((spent / budget.amount) * 100, 100);
+                let progressBarColor = 'bg-blue-500';
+                if (percentage > 75) progressBarColor = 'bg-yellow-500';
+                if (percentage >= 100) progressBarColor = 'bg-red-500';
+
+                const budgetEl = document.createElement('div');
+                budgetEl.innerHTML = `
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-semibold">${budget.id}</span>
+                        <span class="text-sm ${remaining < 0 ? 'text-red-600 font-bold' : 'text-gray-600'}">
+                            ${spent.toLocaleString()} / ${budget.amount.toLocaleString()} 円
+                        </span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar ${progressBarColor}" style="width: ${percentage}%;"></div>
+                    </div>
+                     ${remaining < 0 ? `<p class="text-xs text-right text-red-600 font-bold mt-1">${Math.abs(remaining).toLocaleString()}円の超過</p>` : ''}
+                `;
+                budgetListEl.appendChild(budgetEl);
+            });
+        }
+
+        // === イベントリスナー設定 ===
+        function setupEventListeners() {
+            const transactionModal = document.getElementById('transaction-modal');
+            const openBtn = document.getElementById('open-transaction-modal');
+            const closeBtn = document.getElementById('close-transaction-modal');
+            const transactionForm = document.getElementById('transaction-form');
+            const budgetForm = document.getElementById('budget-form');
+            
+            const incomeBtn = document.getElementById('type-income-btn');
+            const expenseBtn = document.getElementById('type-expense-btn');
+            const transactionTypeInput = document.getElementById('transaction-type');
+
+            openBtn.addEventListener('click', () => {
+                 document.getElementById('transaction-date').valueAsDate = new Date();
+                 transactionModal.classList.add('is-open');
+            });
+            closeBtn.addEventListener('click', () => transactionModal.classList.remove('is-open'));
+            
+            // モーダルの外側をクリックで閉じる
+            transactionModal.addEventListener('click', (e) => {
+                if (e.target === transactionModal) {
+                    transactionModal.classList.remove('is-open');
+                }
+            });
+
+            // 収入・支出ボタンの切り替え
+            incomeBtn.addEventListener('click', () => toggleTransactionType('income'));
+            expenseBtn.addEventListener('click', () => toggleTransactionType('expense'));
+            
+            // 取引フォームの送信
+            transactionForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const newTransaction = {
+                    type: transactionTypeInput.value,
+                    date: new Date(document.getElementById('transaction-date').value),
+                    amount: parseInt(document.getElementById('transaction-amount').value),
+                    category: document.getElementById('transaction-category').value,
+                    description: document.getElementById('transaction-description').value,
+                    createdAt: serverTimestamp()
+                };
+
+                try {
+                    const transCol = collection(db, `artifacts/${appId}/users/${userId}/transactions`);
+                    await addDoc(transCol, newTransaction);
+                    showToast('取引を追加しました', 'success');
+                    transactionForm.reset();
+                    document.getElementById('transaction-date').valueAsDate = new Date();
+                    transactionModal.classList.remove('is-open');
+                } catch (error) {
+                    console.error("取引追加エラー:", error);
+                    showToast('取引の追加に失敗しました', 'error');
+                }
+            });
+            
+            // 予算フォームの送信
+            budgetForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const category = document.getElementById('budget-category').value;
+                const amount = parseInt(document.getElementById('budget-amount').value);
+
+                if (!category || isNaN(amount) || amount < 0) {
+                    showToast('有効なカテゴリと金額を入力してください', 'error');
+                    return;
+                }
+                
+                try {
+                    const budgetDocRef = doc(db, `artifacts/${appId}/users/${userId}/budgets`, category);
+                    await setDoc(budgetDocRef, { amount: amount });
+                    showToast(`「${category}」の予算を設定しました`, 'success');
+                    budgetForm.reset();
+                } catch (error) {
+                    console.error("予算設定エラー:", error);
+                    showToast('予算の設定に失敗しました', 'error');
+                }
+            });
+
+            // Googleログインボタンのクリックイベント
+            document.getElementById('google-login-btn').addEventListener('click', async () => {
+                const provider = new GoogleAuthProvider();
+                try {
+                    await signInWithPopup(auth, provider);
+                    showToast('Googleでログインしました！', 'success');
+                } catch (error) {
+                    showToast('Googleログインに失敗しました: ' + error.message, 'error');
+                }
+            });
+        }
+        
+        // === ヘルパー関数 ===
+
+        // カテゴリのドロップダウンを生成
+        function populateCategoryDropdowns() {
+            const transCategoryEl = document.getElementById('transaction-category');
+            const budgetCategoryEl = document.getElementById('budget-category');
+            
+            // 支出カテゴリを予算設定用に追加
+            categories.expense.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                budgetCategoryEl.appendChild(option);
+            });
+            
+            // 最初は支出カテゴリを取引フォームに設定
+            toggleTransactionType('expense');
+        }
+        
+        // 取引タイプの切り替え
+        function toggleTransactionType(type) {
+            const incomeBtn = document.getElementById('type-income-btn');
+            const expenseBtn = document.getElementById('type-expense-btn');
+            const transCategoryEl = document.getElementById('transaction-category');
+            const transactionTypeInput = document.getElementById('transaction-type');
+
+            transCategoryEl.innerHTML = '';
+            const cats = (type === 'income') ? categories.income : categories.expense;
+            cats.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                transCategoryEl.appendChild(option);
+            });
+            
+            transactionTypeInput.value = type;
+
+            if (type === 'income') {
+                incomeBtn.classList.add('bg-green-500', 'text-white');
+                incomeBtn.classList.remove('bg-white', 'text-black');
+                expenseBtn.classList.remove('bg-red-500', 'text-white');
+            } else {
+                expenseBtn.classList.add('bg-red-500', 'text-white');
+                expenseBtn.classList.remove('bg-white', 'text-black');
+                incomeBtn.classList.remove('bg-green-500', 'text-white');
+            }
+        }
+        
+        // トーストメッセージの表示
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgColor;
+            switch(type) {
+                case 'success': bgColor = 'bg-green-500'; break;
+                case 'error': bgColor = 'bg-red-500'; break;
+                default: bgColor = 'bg-blue-500';
+            }
+
+            toast.className = `${bgColor} text-white py-2 px-4 rounded-lg shadow-lg animate-fade-in-down`;
+            toast.textContent = message;
+            
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('animate-fade-out-up');
+                 setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+
+    </script>
+
+    <button id="google-login-btn" class="bg-red-500 text-white px-4 py-2 rounded">
+      <i class="fab fa-google mr-2"></i>Googleでログイン
+    </button>
+
+</body>
+</html>
