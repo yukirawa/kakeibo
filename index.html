@@ -4,13 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>高機能家計簿アプリ</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js CDN & Date Adapter -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/date-fns"></script>
-    <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         /* カスタムスタイル */
@@ -66,7 +63,6 @@
 <body class="">
 
     <div id="app-container" class="main-container p-4 md:p-6 lg:p-8">
-        <!-- ヘッダー -->
         <header class="flex flex-col md:flex-row justify-between items-start mb-8">
             <div>
                 <h1 class="text-4xl font-bold text-gray-800">家計簿</h1>
@@ -92,30 +88,24 @@
             </div>
         </header>
 
-        <!-- メインコンテンツエリア -->
         <main id="main-content">
-            <!-- ダッシュボードビュー (初期表示) -->
             <div id="dashboard-view">
                 <div class="grid grid-cols-1 xl:grid-cols-5 gap-8">
-                    <!-- 左側 (メイン表示) -->
                     <div class="xl:col-span-3 space-y-8">
-                        <!-- サマリー -->
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div id="balance-card" class="card clickable-card flex items-center"><div class="p-3 mr-4 bg-blue-100 rounded-full"><i class="fas fa-wallet fa-lg text-blue-500"></i></div><div><h2 class="text-gray-500">現在の残高</h2><p id="current-balance" class="text-2xl md:text-3xl font-bold mt-1">¥0</p></div></div>
                             <div id="income-card" class="card clickable-card flex items-center"><div class="p-3 mr-4 bg-green-100 rounded-full"><i class="fas fa-arrow-up fa-lg text-green-500"></i></div><div><h2 class="text-gray-500">今月の収入</h2><p id="total-income" class="text-2xl md:text-3xl font-bold mt-1 text-green-600">¥0</p></div></div>
                             <div id="expense-card" class="card clickable-card flex items-center"><div class="p-3 mr-4 bg-red-100 rounded-full"><i class="fas fa-arrow-down fa-lg text-red-500"></i></div><div><h2 class="text-gray-500">今月の支出</h2><p id="total-expense" class="text-2xl md:text-3xl font-bold mt-1 text-red-600">¥0</p></div></div>
                         </div>
-                        <!-- 週間支出グラフ -->
                         <div class="card"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold">週間支出</h2><i class="fas fa-chart-line text-2xl text-gray-300"></i></div><div class="w-full h-60"><canvas id="weekly-expense-chart"></canvas></div></div>
-                        <!-- AIサマリーカード -->
                         <div class="card bg-gradient-to-br from-indigo-50 to-purple-50">
                             <h2 class="text-2xl font-bold mb-4 text-indigo-800">今月のAIサマリー ✨</h2>
                             <div id="ai-summary-content" class="text-gray-600 prose prose-sm max-w-none mb-4 min-h-[50px]"><p>下のボタンを押して、今月の支出傾向をAIに分析してもらいましょう。</p></div>
                             <button id="get-ai-summary-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm hover:shadow-md transition-shadow"><i class="fas fa-wand-magic-sparkles mr-2"></i>サマリーを生成</button>
                         </div>
                     </div>
-                    <!-- 右側 (サイドバー) -->
                     <div class="xl:col-span-2 space-y-8">
+                         <div id="expense-chart-card" class="card clickable-card"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold">支出カテゴリ</h2><i class="fas fa-chart-pie text-2xl text-gray-300"></i></div><div class="w-full h-64 flex justify-center items-center relative"><canvas id="dashboard-chart-canvas"></canvas></div></div>
                          <div class="card"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold">最近の取引履歴</h2><i class="fas fa-history text-2xl text-gray-300"></i></div><div id="transaction-list" class="space-y-2 max-h-[400px] overflow-y-auto pr-2"></div></div>
                          <div class="card"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold">予算管理</h2><i class="fas fa-bullseye text-2xl text-gray-300"></i></div><div id="budget-list" class="space-y-4 max-h-[300px] overflow-y-auto pr-2"></div><form id="budget-form" class="mt-6 flex gap-2"><select id="budget-category" class="w-full p-2 border border-gray-300 rounded-lg bg-gray-50"></select><input type="number" id="budget-amount" placeholder="予算額" class="w-full p-2 border border-gray-300 rounded-lg" required><button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">設定</button></form></div>
                          <div class="card"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold">データ管理</h2><i class="fas fa-cogs text-2xl text-gray-300"></i></div><div class="flex flex-col space-y-3"><button id="download-json-btn" class="w-full text-left p-3 bg-gray-100 hover:bg-gray-200 rounded-lg"><i class="fas fa-file-code w-6 mr-2 text-gray-500"></i>JSONでダウンロード</button><button id="download-csv-btn" class="w-full text-left p-3 bg-gray-100 hover:bg-gray-200 rounded-lg"><i class="fas fa-file-csv w-6 mr-2 text-gray-500"></i>CSVでダウンロード</button><button id="get-ai-tips-btn" class="w-full text-left p-3 bg-indigo-100 hover:bg-indigo-200 rounded-lg text-indigo-800"><i class="fas fa-lightbulb w-6 mr-2"></i>節約術を提案 ✨</button></div></div>
@@ -123,12 +113,10 @@
                 </div>
             </div>
             
-            <!-- 詳細ビュー (JSで中身を生成) -->
             <div id="detail-view" class="hidden"></div>
         </main>
     </div>
 
-    <!-- スマートフォン用下部ナビゲーション -->
     <nav id="bottom-nav">
         <button data-view="dashboard" class="nav-btn flex-1 p-2 text-center text-gray-600"><i class="fas fa-home text-2xl"></i><span class="block text-xs">ホーム</span></button>
         <button data-view="all" class="nav-btn flex-1 p-2 text-center text-gray-600"><i class="fas fa-list text-2xl"></i><span class="block text-xs">全履歴</span></button>
@@ -137,18 +125,15 @@
         <button data-view="budget" class="nav-btn flex-1 p-2 text-center text-gray-600"><i class="fas fa-bullseye text-2xl"></i><span class="block text-xs">予算</span></button>
     </nav>
     
-    <!-- PC用追加ボタン -->
     <button id="add-transaction-desktop-btn" title="取引を追加" class="hidden md:block fixed bottom-8 right-8 bg-indigo-600 hover:bg-indigo-700 text-white w-16 h-16 rounded-full shadow-lg hover:shadow-xl flex items-center justify-center text-3xl transform hover:scale-105 transition-all">
         <i class="fas fa-plus"></i>
     </button>
 
-    <!-- 各種モーダル (中身はJSで生成) -->
     <div id="transaction-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center p-4 z-40"></div>
     <div id="confirm-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center p-4 z-50"></div>
     <div id="ai-tips-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center p-4 z-50"></div>
     <div id="toast-container" class="fixed top-5 right-5 z-50"></div>
 
-    <!-- JavaScriptをここに埋め込み -->
     <script type="module">
         // config.jsの内容をここに直接記述
         const __firebase_config = {
@@ -547,7 +532,7 @@
             }, {});
 
             localTransactions.forEach(t => {
-                if (t.type === 'expense') {
+                if (t.type === 'expense' && t.date) {
                     const dateStr = t.date.toDate().toISOString().split('T')[0];
                     if (dateStr in expenseByDay) {
                         expenseByDay[dateStr] += t.amount;
@@ -572,7 +557,7 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        y: { beginAtZero: true, ticks: { callback: value => `¥${value/1000}k` } },
+                        y: { beginAtZero: true, ticks: { callback: value => `¥${value.toLocaleString()}` } },
                     },
                     plugins: { legend: { display: false } }
                 }
@@ -588,7 +573,7 @@
                 return acc;
             }, {});
             const sortedMonths = Object.keys(monthlyData).sort();
-            detailChart = new Chart(canvas.getContext('2d'), { type: 'bar', data: { labels: sortedMonths, datasets: [ { label: '収入', data: sortedMonths.map(m => monthlyData[m].income), backgroundColor: '#22c55e' }, { label: '支出', data: sortedMonths.map(m => monthlyData[m].expense), backgroundColor: '#ef4444' } ] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } } });
+            detailChart = new Chart(canvas.getContext('2d'), { type: 'bar', data: { labels: sortedMonths, datasets: [ { label: '収入', data: sortedMonths.map(m => monthlyData[m].income), backgroundColor: '#22c55e' }, { label: '支出', data: sortedMonths.map(m => monthlyData[m].expense), backgroundColor: '#ef4444' } ] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, ticks: { callback: value => `¥${value.toLocaleString()}` } } } } });
         }
 
         function renderBudgets() {
